@@ -31,7 +31,7 @@ On your first morning, your lead assigns you a ticket:
 > that into bug reports, so we need to be able to read it back in too.
 
 That's the whole ticket. Your teamlead is in meetings for the rest of the
-day. It looks like an hours work.
+day. It looks like about two hours work.
 
 You are building the core library: a `Song` class and a `shuffle` function.
 
@@ -61,20 +61,9 @@ tracks.
 - The separator is a hyphen, en dash (`–`) or em dash (`—`) with whitespace on both sides.
   A hyphen with no spaces around it is part of a name (`Jay-Z`, `Blink-182`).
 - Extra whitespace around the separator is allowed.
-
-**Format B, `Title: X; Artist: Y`.** This is the format `print` produces and the
-debug overlay shows, so a song pasted from a bug report can be read back in.
-
-- The two fields may appear in either order.
-- The keys `Title` and `Artist` are not case-sensitive.
-- Whitespace around keys and values is ignored.
-
-**In both formats:**
-
 - Leading and trailing whitespace, including a Windows `\r`, is ignored.
 - A missing or empty artist becomes `Unknown Artist`.
 - A missing or empty title becomes `Unknown Title`.
-- Text that matches neither format is treated as a title with an unknown artist.
 - The constructor always produces a valid song. It never fails.
 
 | Input                                    | Title                            | Artist           |
@@ -95,8 +84,6 @@ debug overlay shows, so a song pasted from a bug report can be read back in.
 | `-`                                      | `Unknown Title`                  | `Unknown Artist` |
 | _(empty or whitespace only)_             | `Unknown Title`                  | `Unknown Artist` |
 
-The two-argument constructor follows the same rule: an empty title or artist
-becomes `Unknown Title` or `Unknown Artist`.
 
 #### Equality
 
@@ -154,7 +141,7 @@ TEST(Shuffle, TwoCallsGiveDifferentLists) {
 }
 ```
 
-Here `makeStation(n)` is a helper in `makestation.cpp` tha retuns `n`
+Here `makeStation(n)` is a helper in `makestation.cpp` that retuns `n`
 different songs.
 
 > **Comparing vectors.** `EXPECT_EQ` and `EXPECT_NE` work directly on two
@@ -207,4 +194,4 @@ line to `DECISIONS.md` saying what you decided and why.
 
 ### Submission
 
-Push to github and paste your new decisions into the Submission box in the blackboard assignment
+Push to github **and** paste your **new decisions** into the Submission box in the blackboard assignment
