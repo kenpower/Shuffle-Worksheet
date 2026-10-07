@@ -8,10 +8,7 @@ keep a record of any decision you have to make that the brief does not cover.
 
 ## Part 1: The brief
 
-### Your first ticket[^1]
-
-[^1]: A ticket (or work item) is a single, trackable piece of work. It records what needs doing, who's doing it, its current status, and the criteria that define when it's done.
-  Tickets make the team's work visible and shared. Everyone can see what's planned, who's doing what and what's blocked, and each change can be traced back to the reason it was made.
+### Your first ticket
 
 You've just joined the gameplay audio team at Halfmoon Interactive. The studio is
 eight months from shipping _Midnight Circuit_, an open-world street racing game
@@ -30,8 +27,7 @@ On your first morning, your lead assigns you a ticket:
 > selection.
 >
 > Track names come from the audio team's spreadsheet as `Artist - Title`. The
-> debug overlay shows the current track as `Title: …; Artist: …`, and QA paste
-> that into bug reports, so we need to be able to read it back in too.
+> debug overlay shows the current track as `Title: …; Artist: …`.
 
 That's the whole ticket. Your teamlead is in meetings for the rest of the
 day. It looks like about two hours work.
@@ -53,12 +49,10 @@ public:
 };
 ```
 
-#### Constructor: flexible parsing
+#### Constructor: parsing text
 
-The text constructor must accept songs written in either of two formats.
-
-**Format A, `Artist - Title`.** This is how the audio team's spreadsheet lists
-tracks.
+The text constructor reads a song written as `Artist - Title`, the way the audio
+team's spreadsheet lists tracks.[^strings]
 
 - Split on the **first** separator, so a title may itself contain one.
 - The separator is a hyphen, en dash (`–`) or em dash (`—`) with whitespace on both sides.
@@ -76,22 +70,77 @@ tracks.
 | `Jay-Z - 99 Problems`                    | `99 Problems`                    | `Jay-Z`          |
 | `Queen - Bohemian Rhapsody - Remastered` | `Bohemian Rhapsody - Remastered` | `Queen`          |
 | `Neon Saints – Overdrive` (en dash)      | `Overdrive`                      | `Neon Saints`    |
-| `Title: Overdrive; Artist: Neon Saints`  | `Overdrive`                      | `Neon Saints`    |
-| `artist: Neon Saints; title: Overdrive`  | `Overdrive`                      | `Neon Saints`    |
 | `Overdrive`                              | `Overdrive`                      | `Unknown Artist` |
 | ` - Overdrive`                           | `Overdrive`                      | `Unknown Artist` |
 | `Neon Saints - `                         | `Unknown Title`                  | `Neon Saints`    |
-| `Title: Overdrive; Artist:`              | `Overdrive`                      | `Unknown Artist` |
-| `Title: Overdrive`                       | `Overdrive`                      | `Unknown Artist` |
-| `Artist: Neon Saints`                    | `Unknown Title`                  | `Neon Saints`    |
 | `-`                                      | `Unknown Title`                  | `Unknown Artist` |
 | _(empty or whitespace only)_             | `Unknown Title`                  | `Unknown Artist` |
 
+[^strings]: **Useful `std::string` functions for parsing.** All are in `<string>`
+    unless noted.
+
+    - `s.find(" - ")` gives the position of the first match, or
+      `std::string::npos` if there isn't one. Use it to find the separator.
+    - `s.substr(pos, len)` copies part of the string. Leave out `len` to go to
+      the end. Use it to cut out the artist and title.
+    - `s.find_first_not_of(" \t\r\n")` and `s.find_last_not_of(" \t\r\n")`
+      give the positions of the first and last characters that aren't
+      whitespace. Use them to trim.
+    - `s.empty()` is true if the string has no characters. Use it to decide on
+      `Unknown Title` or `Unknown Artist`.
+    - `std::tolower(c)`, from `<cctype>`, gives the lower-case version of one
+      character. Use it for case-insensitive equality.
+
+    Three things to watch:
+
+    - **Always check for `npos` before using a position.** `s.substr(npos + 3)`
+      wraps round to a small number and gives nonsense, and `substr` with a
+      start past the end of the string throws.
+    - **The en dash and em dash are three bytes each in UTF-8**, not one
+      character. `s.find(" – ")` still works, but the separator is 5 bytes
+      long, not 3, so don't hard-code the length: use the length of the
+      separator string you searched for.
+    - **Pass `std::tolower` an `unsigned char`**:
+      `std::tolower(static_cast<unsigned char>(c))`. A plain `char` can be
+      negative, which is undefined behaviour.
+
+#### Constructor: title and artist
+
+```cpp
+Song(std::string title, std::string artist);
+```
+
+The second constructor is for code that already has the title and artist as
+separate strings, such as your tests. It does **no parsing**: it stores the two
+strings as they are, so `Song("Overdrive - Live", "Neon Saints")` has the title
+`Overdrive - Live`, separator and all.
+
+Note the order: **title first, then artist**. That's the opposite of the text
+format (`Artist - Title`), and an easy mistake to make in a test.
+
+It follows the same rules for missing values as the text constructor:
+
+- Leading and trailing whitespace is removed.
+- An empty title becomes `Unknown Title`, and an empty artist becomes
+  `Unknown Artist`.
+
+| Call                                  | Title           | Artist           |
+| ------------------------------------- | --------------- | ---------------- |
+| `Song("Overdrive", "Neon Saints")`    | `Overdrive`     | `Neon Saints`    |
+| `Song("  Overdrive ", " Neon Saints")`| `Overdrive`     | `Neon Saints`    |
+| `Song("Overdrive - Live", "Neon Saints")` | `Overdrive - Live` | `Neon Saints` |
+| `Song("Overdrive", "")`               | `Overdrive`     | `Unknown Artist` |
+| `Song("", "Neon Saints")`             | `Unknown Title` | `Neon Saints`    |
+| `Song("", "")`                        | `Unknown Title` | `Unknown Artist` |
+
+This means two songs built in different ways can be compared: a song parsed from
+text and a song built from its parts are equal when they hold the same title and
+artist.
 
 #### Equality
 
 Two songs are equal when their titles match and their artists match, ignoring
-case. The spreadsheet and the bug reports aren't consistent about capitals.
+case. The spreadsheet isn't consistent about capitals.
 Ignoring case for the letters A–Z is enough; accented letters can be compared
 exactly.
 
@@ -113,6 +162,93 @@ Writes the song to a stream on a single line, with no trailing newline:
 ```
 Title: Overdrive; Artist: Neon Saints
 ```
+
+#### Testing equality: do this first
+
+Every other `Song` test compares songs with `==`, so `operator==` has to be
+right before anything else can be trusted. Test it first, using the
+title-and-artist constructor, which needs no parsing:
+
+```cpp
+TEST(SongEquality, SameTitleAndArtistAreEqual) {
+    EXPECT_TRUE(Song("Overdrive", "Neon Saints") == Song("Overdrive", "Neon Saints"));
+}
+
+TEST(SongEquality, IgnoresCase) {
+    EXPECT_TRUE(Song("Overdrive", "Neon Saints") == Song("OVERDRIVE", "neon saints"));
+}
+
+TEST(SongEquality, DifferentTitleNotEqual) {
+    EXPECT_FALSE(Song("Overdrive", "Neon Saints") == Song("Overdrive (Remix)", "Neon Saints"));
+}
+
+TEST(SongEquality, DifferentArtistNotEqual) {
+    EXPECT_FALSE(Song("Hallelujah", "Leonard Cohen") == Song("Hallelujah", "Jeff Buckley"));
+}
+```
+
+Include both kinds of test. An `operator==` that always returns `true` passes
+every "equal" test, and one that always returns `false` passes every "not
+equal" test. Only the two together prove it works.
+
+These tests use `EXPECT_TRUE(a == b)` rather than `EXPECT_EQ(a, b)` so that
+they read as a test of `==` itself. Once equality is tested, use `EXPECT_EQ`
+everywhere else: it gives better failure messages.
+
+#### Testing the constructor
+
+`Song` has no getters, so a test can't ask a song for its title. There are two
+ways to check what the constructor did.
+
+**1. Compare with a song you build directly.** Use the two-argument
+constructor to build the song you expect, then compare the two with `==`:
+
+```cpp
+TEST(SongParse, ArtistDashTitle) {
+    Song expected("Overdrive", "Neon Saints");
+    EXPECT_EQ(Song("Neon Saints - Overdrive"), expected);
+}
+
+TEST(SongParse, SplitsOnFirstSeparatorOnly) {
+    Song expected("Bohemian Rhapsody - Remastered", "Queen");
+    EXPECT_EQ(Song("Queen - Bohemian Rhapsody - Remastered"), expected);
+}
+
+TEST(SongParse, MissingArtistBecomesUnknownArtist) {
+    Song expected("Overdrive", "Unknown Artist");
+    EXPECT_EQ(Song(" - Overdrive"), expected);
+}
+```
+
+This relies on your `operator==` being right, which is why equality is tested
+first.
+
+**2. Check the printed text.** Because equality ignores case, method 1 can't
+tell `Neon Saints` from `neon saints`. When the exact text matters, print the
+song into a string and check that instead:
+
+```cpp
+TEST(SongParse, KeepsOriginalCapitals) {
+    Song song("Neon Saints - Overdrive");
+    std::ostringstream out;
+    song.print(out);
+    EXPECT_EQ(out.str(), "Title: Overdrive; Artist: Neon Saints");
+}
+
+TEST(SongParse, TrimsSpacesAroundNames) {
+    Song song("  Neon Saints   -   Overdrive  ");
+    std::ostringstream out;
+    song.print(out);
+    EXPECT_EQ(out.str(), "Title: Overdrive; Artist: Neon Saints");
+}
+```
+
+Method 2 also catches stray spaces that equality would miss: if your parser
+left a space on the end of `Overdrive `, the two songs would not be equal, but
+the printed text makes the problem easy to see.
+
+Each row of the constructor table above is one test. Start with the first row,
+make it pass, then add the next.
 
 ### The `shuffle` function (skeleton in shuffle.cpp)
 
@@ -175,13 +311,11 @@ least code that passes), **refactor** (tidy up with the tests still passing).
 
 A suggested order:
 
-1. `Song(title, artist)`, the accessors and `operator==`
+1. `Song(title, artist)` and `operator==`
 2. `print`
-3. Parsing format A, starting with the simplest line and adding one rule at a time
-4. Parsing format B
-5. Missing and empty fields (`Unknown Title`, `Unknown Artist`)
-6. The print-then-parse round trip
-7. `shuffle`
+3. Parsing `Artist - Title`, starting with the simplest line and adding one rule at a time
+4. Missing and empty fields (`Unknown Title`, `Unknown Artist`)
+5. `shuffle`
 
 Some tips:
 
@@ -198,4 +332,3 @@ line to `DECISIONS.md` saying what you decided and why.
 ### Submission
 
 Push to github **and** paste your **new decisions** into the Submission box in the blackboard assignment
-](https://github.com/kenpower/Shuffle-Worksheet)
