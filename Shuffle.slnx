@@ -1,5 +1,7 @@
 <Solution>
   <Configurations>
+    <Configuration Name="Debug" />
+    <Configuration Name="Release" />
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
