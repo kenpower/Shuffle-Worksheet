@@ -8,7 +8,10 @@ keep a record of any decision you have to make that the brief does not cover.
 
 ## Part 1: The brief
 
-### Your first ticket
+### Your first ticket[^1]
+
+[^1]: A ticket (or work item) is a single, trackable piece of work. It records what needs doing, who's doing it, its current status, and the criteria that define when it's done.
+  Tickets make the team's work visible and shared. Everyone can see what's planned, who's doing what and what's blocked, and each change can be traced back to the reason it was made.
 
 You've just joined the gameplay audio team at Halfmoon Interactive. The studio is
 eight months from shipping _Midnight Circuit_, an open-world street racing game
