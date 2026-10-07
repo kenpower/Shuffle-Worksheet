@@ -63,18 +63,19 @@ team's spreadsheet lists tracks.[^strings]
 - A missing or empty title becomes `Unknown Title`.
 - The constructor always produces a valid song. It never fails.
 
-| Input                                    | Title                            | Artist           |
-| ---------------------------------------- | -------------------------------- | ---------------- |
-| `Neon Saints - Overdrive`                | `Overdrive`                      | `Neon Saints`    |
-| `  Neon Saints   -   Overdrive  `        | `Overdrive`                      | `Neon Saints`    |
-| `Jay-Z - 99 Problems`                    | `99 Problems`                    | `Jay-Z`          |
-| `Queen - Bohemian Rhapsody - Remastered` | `Bohemian Rhapsody - Remastered` | `Queen`          |
-| `Neon Saints – Overdrive` (en dash)      | `Overdrive`                      | `Neon Saints`    |
-| `Overdrive`                              | `Overdrive`                      | `Unknown Artist` |
-| ` - Overdrive`                           | `Overdrive`                      | `Unknown Artist` |
-| `Neon Saints - `                         | `Unknown Title`                  | `Neon Saints`    |
-| `-`                                      | `Unknown Title`                  | `Unknown Artist` |
-| _(empty or whitespace only)_             | `Unknown Title`                  | `Unknown Artist` |
+| Input                                    | Artist           | Title                            |
+| ---------------------------------------- | ---------------- | -------------------------------- |
+| `Neon Saints - Overdrive`                | `Neon Saints`    | `Overdrive`                      |
+| `  Neon Saints   -   Overdrive  `        | `Neon Saints`    | `Overdrive`                      |
+| `Jay-Z - 99 Problems`                    | `Jay-Z`          | `99 Problems`                    |
+| `Queen - Bohemian Rhapsody - Remastered` | `Queen`          | `Bohemian Rhapsody - Remastered` |
+| `Neon Saints – Overdrive` (en dash)      | `Neon Saints`    | `Overdrive`                      |
+| `Neon Saints`                            | `Neon Saints`    | `Unknown Title`                  |
+| ` - Overdrive`                           | `Unknown Artist` | `Overdrive`                      |
+| `Neon Saints - `                         | `Neon Saints`    | `Unknown Title`                  |
+| `-`                                      | `Unknown Artist` | `Unknown Title`                  |
+| _(empty or whitespace only)_             | `Unknown Artist` | `Unknown Title`                  |
+
 
 [^strings]: **Useful `std::string` functions for parsing.** All are in `<string>`
     unless noted.
