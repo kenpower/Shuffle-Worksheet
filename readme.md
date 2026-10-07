@@ -27,25 +27,25 @@ On your first morning, your lead assigns you a ticket:
 > selection.
 >
 > Track names come from the audio team's spreadsheet as `Artist - Title`. The
-> debug overlay shows the current track as `Title: …; Artist: …`.
+> debug overlay shows the current track as `Artist: …; Title: …`.
 
-That's the whole ticket. Your teamlead is in meetings for the rest of the
-day. It looks like about two hours work.
+That's the whole ticket. Your team lead is in meetings for the rest of the
+day. It looks like about two hours' work.
 
 You are building the core library: a `Song` class and a `shuffle` function.
 
 ### The `Song` class (skeleton in song.cpp)
 
-A `Song` has a **title** and an **artist**.
+A `Song` has an **artist** and a **title**.
 
 ```cpp
 class Song {
 public:
     explicit Song(const std::string& text);              // parse from text
-    Song(std::string title, std::string artist);
+    Song(std::string artist, std::string title);
 
-    bool operator==(const Song& other) const;
-    void print(std::ostream& out) const;                  // Title: Overdrive; Artist: Neon Saints
+    bool operator==(const Song& other) const;             // given: see Equality
+    void print(std::ostream& out) const;                  // given: see print
 };
 ```
 
@@ -54,11 +54,18 @@ public:
 The text constructor reads a song written as `Artist - Title`, the way the audio
 team's spreadsheet lists tracks.[^strings]
 
-- Split on the **first** separator, so a title may itself contain one.
-- The separator is a hyphen, en dash (`–`) or em dash (`—`) with whitespace on both sides.
-  A hyphen with no spaces around it is part of a name (`Jay-Z`, `Blink-182`).
-- Extra whitespace around the separator is allowed.
-- Leading and trailing whitespace, including a Windows `\r`, is ignored.
+- First, remove leading and trailing whitespace, including a Windows `\r`.
+- The separator is a hyphen, en dash (`-`) or em dash (`—`) with a space on both
+  sides. A hyphen with no spaces around it is part of a name (`Jay-Z`,
+  `Blink-182`).
+- A dash at the very start or very end of the trimmed text also counts as a
+  separator, with nothing on that side (so ` - Overdrive` has an empty artist).
+- Split on the **first** separator, so a title may itself contain one. If the
+  text contains more than one kind of dash, the first is whichever comes
+  earliest in the text.
+- Extra spaces around the separator are allowed. Trim the artist and title after
+  splitting.
+- Text with no separator at all is treated as the artist.
 - A missing or empty artist becomes `Unknown Artist`.
 - A missing or empty title becomes `Unknown Title`.
 - The constructor always produces a valid song. It never fails.
@@ -68,129 +75,119 @@ team's spreadsheet lists tracks.[^strings]
 | `Neon Saints - Overdrive`                | `Neon Saints`    | `Overdrive`                      |
 | `  Neon Saints   -   Overdrive  `        | `Neon Saints`    | `Overdrive`                      |
 | `Jay-Z - 99 Problems`                    | `Jay-Z`          | `99 Problems`                    |
-| `Queen - Bohemian Rhapsody - Remastered` | `Queen`          | `Bohemian Rhapsody - Remastered` |
-| `Neon Saints – Overdrive` (en dash)      | `Neon Saints`    | `Overdrive`                      |
+| `Queen - Bohemian Rhapsody - Remastered` | `Queen`          | `Bohemian Rhapsody - Remastered`                   |
+| `Neon Saints - Overdrive - Live`         | `Neon Saints`    | `Overdrive - Live`               |
+| `Neon Saints - Overdrive\r`              | `Neon Saints`    | `Overdrive`                      |
 | `Neon Saints`                            | `Neon Saints`    | `Unknown Title`                  |
 | ` - Overdrive`                           | `Unknown Artist` | `Overdrive`                      |
 | `Neon Saints - `                         | `Neon Saints`    | `Unknown Title`                  |
 | `-`                                      | `Unknown Artist` | `Unknown Title`                  |
 | _(empty or whitespace only)_             | `Unknown Artist` | `Unknown Title`                  |
 
-
 [^strings]: **Useful `std::string` functions for parsing.** All are in `<string>`
     unless noted.
 
     - `s.find(" - ")` gives the position of the first match, or
-      `std::string::npos` if there isn't one. Use it to find the separator.
+      `std::string::npos` if there isn't one. Use it to find a separator. You
+      will need to search for each of the three dashes and take the earliest.
     - `s.substr(pos, len)` copies part of the string. Leave out `len` to go to
       the end. Use it to cut out the artist and title.
     - `s.find_first_not_of(" \t\r\n")` and `s.find_last_not_of(" \t\r\n")`
       give the positions of the first and last characters that aren't
-      whitespace. Use them to trim. (DOES NOT FIND SUBSTRINGS)
+      whitespace. Use them to trim. These treat their argument as a *set* of
+      characters, not a sequence, so don't use them to find the separator.
     - `s.empty()` is true if the string has no characters. Use it to decide on
-      `Unknown Title` or `Unknown Artist`.
-    - `std::tolower(c)`, from `<cctype>`, gives the lower-case version of one
-      character. Use it for case-insensitive equality.
+      `Unknown Artist` or `Unknown Title`.
 
-    Three things to watch:
+    Two things to watch:
 
     - **Always check for `npos` before using a position.** `s.substr(npos + 3)`
       wraps round to a small number and gives nonsense, and `substr` with a
       start past the end of the string throws.
     - **The en dash and em dash are three bytes each in UTF-8**, not one
-      character. `s.find(" – ")` still works, but the separator is 5 bytes
+      character. `s.find(" - ")` still works, but the separator is 5 bytes
       long, not 3, so don't hard-code the length: use the length of the
       separator string you searched for.
-    - **Pass `std::tolower` an `unsigned char`**:
-      `std::tolower(static_cast<unsigned char>(c))`. A plain `char` can be
-      negative, which is undefined behaviour.
 
-#### Constructor: title and artist
+#### Constructor: artist and title
 
 ```cpp
-Song(std::string title, std::string artist);
+Song(std::string artist, std::string title);
 ```
 
-The second constructor is for code that already has the title and artist as
-separate strings, such as your tests. It does **no parsing**: it stores the two
-strings as they are, so `Song("Overdrive - Live", "Neon Saints")` has the title
-`Overdrive - Live`, separator and all.
-
-Note the order: **title first, then artist**. That's the opposite of the text
-format (`Artist - Title`), and an easy mistake to make in a test.
+The second constructor is for code that already has the artist and title as
+separate strings, such as your tests. The arguments come in the same order as
+the text format: **artist first, then title**. It does **no splitting**: it
+never looks for a separator, so `Song("Neon Saints", "Overdrive - Live")` has
+the title `Overdrive - Live`, separator and all.
 
 It follows the same rules for missing values as the text constructor:
 
 - Leading and trailing whitespace is removed.
-- An empty title becomes `Unknown Title`, and an empty artist becomes
-  `Unknown Artist`.
+- An empty artist becomes `Unknown Artist`, and an empty title becomes
+  `Unknown Title`.
 
-| Call                                  | Title           | Artist           |
-| ------------------------------------- | --------------- | ---------------- |
-| `Song("Overdrive", "Neon Saints")`    | `Overdrive`     | `Neon Saints`    |
-| `Song("  Overdrive ", " Neon Saints")`| `Overdrive`     | `Neon Saints`    |
-| `Song("Overdrive - Live", "Neon Saints")` | `Overdrive - Live` | `Neon Saints` |
-| `Song("Overdrive", "")`               | `Overdrive`     | `Unknown Artist` |
-| `Song("", "Neon Saints")`             | `Unknown Title` | `Neon Saints`    |
-| `Song("", "")`                        | `Unknown Title` | `Unknown Artist` |
+| Call                                      | Artist           | Title              |
+| ----------------------------------------- | ---------------- | ------------------ |
+| `Song("Neon Saints", "Overdrive")`        | `Neon Saints`    | `Overdrive`        |
+| `Song(" Neon Saints", "  Overdrive ")`    | `Neon Saints`    | `Overdrive`        |
+| `Song("Neon Saints", "Overdrive - Live")` | `Neon Saints`    | `Overdrive - Live` |
+| `Song("", "Overdrive")`                   | `Unknown Artist` | `Overdrive`        |
+| `Song("Neon Saints", "")`                 | `Neon Saints`    | `Unknown Title`    |
+| `Song("", "")`                            | `Unknown Artist` | `Unknown Title`    |
 
 This means two songs built in different ways can be compared: a song parsed from
-text and a song built from its parts are equal when they hold the same title and
-artist.
+text and a song built from its parts are equal when they hold the same artist and
+title.
 
 #### Equality
 
-Two songs are equal when their titles match and their artists match, ignoring
+Two songs are equal when their artists match and their titles match, ignoring
 case. The spreadsheet isn't consistent about capitals.
-Ignoring case for the letters A–Z is enough; accented letters can be compared
+Ignoring case for the letters A-Z is enough; accented letters can be compared
 exactly.
 
-| Song A                             | Song B                              | Equal? |
-| ---------------------------------- | ----------------------------------- | ------ |
-| `Overdrive` / `Neon Saints`        | `Overdrive` / `Neon Saints`         | yes    |
-| `Overdrive` / `Neon Saints`        | `OVERDRIVE` / `neon saints`         | yes    |
-| `Overdrive` / `Neon Saints`        | `Overdrive (Remix)` / `Neon Saints` | no     |
-| `Hallelujah` / `Leonard Cohen`     | `Hallelujah` / `Jeff Buckley`       | no     |
-| `Unknown Title` / `Unknown Artist` | `Unknown Title` / `Unknown Artist`  | yes    |
+`operator==` is **given** in `song.cpp`; you don't write it or test it:
 
 Equality compares only; it does not change the stored text. `print` still shows
-the title and artist exactly as they were given.
+the artist and title exactly as they were given.
 
 #### `print`
 
-Writes the song to a stream on a single line, with no trailing newline:
-
-```
-Title: Overdrive; Artist: Neon Saints
-```
+`print` is **given** in `song.cpp`; you don't write it or test it. It writes the
+song to a stream on a single line, with no trailing newline, in the debug
+overlay's format:
 
 #### Testing equality: do this first
 
-Every other `Song` test compares songs with `==`, so `operator==` has to be
-right before anything else can be trusted. Test it first, using the
-title-and-artist constructor, which needs no parsing:
+`operator==` is given, but every other `Song` test compares songs with `==`, so
+you need to know it works before anything else can be trusted. Your first tests
+check it, using the artist-and-title constructor, which needs no parsing. They
+will only pass once that constructor stores its arguments:
 
 ```cpp
-TEST(SongEquality, SameTitleAndArtistAreEqual) {
-    EXPECT_TRUE(Song("Overdrive", "Neon Saints") == Song("Overdrive", "Neon Saints"));
+TEST(SongEquality, SameArtistAndTitleAreEqual) {
+    EXPECT_TRUE(Song("Neon Saints", "Overdrive") == Song("Neon Saints", "Overdrive"));
 }
 
 TEST(SongEquality, IgnoresCase) {
-    EXPECT_TRUE(Song("Overdrive", "Neon Saints") == Song("OVERDRIVE", "neon saints"));
+    EXPECT_TRUE(Song("Neon Saints", "Overdrive") == Song("neon saints", "OVERDRIVE"));
 }
 
 TEST(SongEquality, DifferentTitleNotEqual) {
-    EXPECT_FALSE(Song("Overdrive", "Neon Saints") == Song("Overdrive (Remix)", "Neon Saints"));
+    EXPECT_FALSE(Song("Neon Saints", "Overdrive") == Song("Neon Saints", "Overdrive (Remix)"));
 }
 
 TEST(SongEquality, DifferentArtistNotEqual) {
-    EXPECT_FALSE(Song("Hallelujah", "Leonard Cohen") == Song("Hallelujah", "Jeff Buckley"));
+    EXPECT_FALSE(Song("Leonard Cohen", "Hallelujah") == Song("Jeff Buckley", "Hallelujah"));
 }
 ```
 
 Include both kinds of test. An `operator==` that always returns `true` passes
 every "equal" test, and one that always returns `false` passes every "not
-equal" test. Only the two together prove it works.
+equal" test. Only the two together prove it works. The same goes for your
+constructor: one that ignores its arguments and stores nothing makes every song
+equal.
 
 These tests use `EXPECT_TRUE(a == b)` rather than `EXPECT_EQ(a, b)` so that
 they read as a test of `==` itself. Once equality is tested, use `EXPECT_EQ`
@@ -206,17 +203,17 @@ constructor to build the song you expect, then compare the two with `==`:
 
 ```cpp
 TEST(SongParse, ArtistDashTitle) {
-    Song expected("Overdrive", "Neon Saints");
+    Song expected("Neon Saints", "Overdrive");
     EXPECT_EQ(Song("Neon Saints - Overdrive"), expected);
 }
 
 TEST(SongParse, SplitsOnFirstSeparatorOnly) {
-    Song expected("Bohemian Rhapsody - Remastered", "Queen");
+    Song expected("Queen", "Bohemian Rhapsody - Remastered");
     EXPECT_EQ(Song("Queen - Bohemian Rhapsody - Remastered"), expected);
 }
 
 TEST(SongParse, MissingArtistBecomesUnknownArtist) {
-    Song expected("Overdrive", "Unknown Artist");
+    Song expected("Unknown Artist", "Overdrive");
     EXPECT_EQ(Song(" - Overdrive"), expected);
 }
 ```
@@ -224,32 +221,6 @@ TEST(SongParse, MissingArtistBecomesUnknownArtist) {
 This relies on your `operator==` being right, which is why equality is tested
 first.
 
-**2. Check the printed text.** Because equality ignores case, method 1 can't
-tell `Neon Saints` from `neon saints`. When the exact text matters, print the
-song into a string and check that instead:
-
-```cpp
-TEST(SongParse, KeepsOriginalCapitals) {
-    Song song("Neon Saints - Overdrive");
-    std::ostringstream out;
-    song.print(out);
-    EXPECT_EQ(out.str(), "Title: Overdrive; Artist: Neon Saints");
-}
-
-TEST(SongParse, TrimsSpacesAroundNames) {
-    Song song("  Neon Saints   -   Overdrive  ");
-    std::ostringstream out;
-    song.print(out);
-    EXPECT_EQ(out.str(), "Title: Overdrive; Artist: Neon Saints");
-}
-```
-
-Method 2 also catches stray spaces that equality would miss: if your parser
-left a space on the end of `Overdrive `, the two songs would not be equal, but
-the printed text makes the problem easy to see.
-
-Each row of the constructor table above is one test. Start with the first row,
-make it pass, then add the next.
 
 ### The `shuffle` function (skeleton in shuffle.cpp)
 
@@ -281,7 +252,7 @@ TEST(Shuffle, TwoCallsGiveDifferentLists) {
 }
 ```
 
-Here `makeStation(n)` is a helper in `makestation.cpp` that retuns `n`
+Here `makeStation(n)` is a helper in `makestation.cpp` that returns `n`
 different songs.
 
 > **Comparing vectors.** `EXPECT_EQ` and `EXPECT_NE` work directly on two
@@ -301,9 +272,10 @@ different songs.
 > for `Song` (see the tips below) so you can read them.
 
 The "different lists" test is checking something random, so it can fail by bad
-luck if the two calls happen to match. With 20 songs that chance is about 1 in
-2.4 × 10¹⁸, so it will never happen in practice. With 2 songs it would fail
-half the time. Choose your test data with that in mind.
+luck if the two calls happen to match. If each call returns all 20 songs in a
+random order, that chance is 1 in 20!, about 1 in 2.4 × 10¹⁸, so it will never
+happen in practice. With 2 songs it would fail half the time. Choose your test
+data with that in mind.
 
 ### How to work
 
@@ -312,17 +284,11 @@ least code that passes), **refactor** (tidy up with the tests still passing).
 
 A suggested order:
 
-1. `Song(title, artist)` and `operator==`
-2. `print`
-3. Parsing `Artist - Title`, starting with the simplest line and adding one rule at a time
-4. Missing and empty fields (`Unknown Title`, `Unknown Artist`)
-5. `shuffle`
+1. `Song(artist, title)`, with tests for the given `operator==`
+2. Parsing `Artist - Title`, starting with the simplest line and adding one rule at a time
+3. Missing and empty fields (`Unknown Artist`, `Unknown Title`)
+4. `shuffle`
 
-Some tips:
-
-- Test against `std::ostringstream` rather than `std::cout`.
-- To print `Song`s readably when a test fails, define
-  `void PrintTo(const Song& s, std::ostream* os)` in your test code.
 
 ### Decisions
 
@@ -332,4 +298,35 @@ line to `DECISIONS.md` saying what you decided and why.
 
 ### Submission
 
-Push to github **and** paste your **new decisions** into the Submission box in the blackboard assignment
+### Checklist
+
+**Setup**
+- [ ] Clone the starter repo and check the project builds and the (empty) test suite runs
+- [ ] Create `DECISIONS.md`
+
+**`Song(artist, title)` and equality**
+- [ ] Run the four `SongEquality` tests (two equal, two not equal) and see them pass
+
+
+**Parsing `Artist - Title`**
+- [ ] One test per row of the parsing table, added one at a time (red → green → refactor)
+- [ ] Simple `Artist - Title`
+- [ ] Extra spaces and leading/trailing whitespace, including `\r`
+- [ ] Hyphen inside a name (`Jay-Z`) is not a separator
+- [ ] Splits on the first separator only
+- [ ] No separator → artist only
+- [ ] Missing artist, missing title, `-` alone, empty and whitespace-only text
+
+**`shuffle`**
+- [ ] Test: returns the requested number of songs
+- [ ] Test: two calls give different lists (use enough songs)
+
+**Decisions**
+- [ ] For each situation the brief doesn't cover, write a test that pins down your choice
+- [ ] Record each decision and the reason in `DECISIONS.md`
+
+**Before you submit**
+- [ ] All tests pass from a clean build
+- [ ] Commits show the TDD rhythm (tests before code), not one big commit
+- [ ] Push to GitHub
+- [ ] Paste your new decisions into the Blackboard Submission box
