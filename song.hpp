@@ -1,3 +1,4 @@
+#include <ostream>
 #include <string>
 #pragma once
 
@@ -16,7 +17,7 @@ public:
 
 
 	bool operator==(const Song& other) const {
-		return false;
+		return other.title == this->title && other.artist == this->artist;
 	}
     
 	void print(std::ostream& out) const {
