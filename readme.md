@@ -86,7 +86,7 @@ team's spreadsheet lists tracks.[^strings]
       the end. Use it to cut out the artist and title.
     - `s.find_first_not_of(" \t\r\n")` and `s.find_last_not_of(" \t\r\n")`
       give the positions of the first and last characters that aren't
-      whitespace. Use them to trim.
+      whitespace. Use them to trim. (DOES NOT FIND SUBSTRINGS)
     - `s.empty()` is true if the string has no characters. Use it to decide on
       `Unknown Title` or `Unknown Artist`.
     - `std::tolower(c)`, from `<cctype>`, gives the lower-case version of one
